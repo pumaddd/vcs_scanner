@@ -1,0 +1,81 @@
+from app.modules.source import BaseSource
+from gnuradio import gr
+from gnuradio import blocks
+from gnuradio.filter import firdes
+from grgsm import arfcn
+from math import pi
+import grgsm
+import sdrplay
+
+class source(BaseSource):
+    
+    __info__ = {
+    'name': 'SDRPLAY Source',
+    'device': 'SDRPLAY',
+    'description': 'driver module to run SDRPLAY hardware device'
+    }
+
+    def __init__(self, **kw):
+        super(source, self).__init__(**kw)
+        
+    def source_init(self):
+        gr.hier_block2.__init__(
+            self, "SDRPLAY Source",
+            gr.io_signature(0, 0, 0),
+            gr.io_signature(1, 1, gr.sizeof_gr_complex*1),
+        )
+
+        ##################################################
+        # Blocks
+        ##################################################
+        self.sdr_source = sdrplay.rsp1a_source(self.fc, 1536, True, 20, True, True,
+            False, 0, 1, self.samp_rate, True, False, 0, False, '0')
+
+        self.set_fc(self.fc)
+        self.set_samp_rate(self.samp_rate)
+        self.set_gain(24)
+        ##################################################
+        # Connections
+        ##################################################
+        self.connect((self.sdr_source, 0),  (self, 0)) 
+
+    def get_fc(self):
+        return self.fc
+
+    def set_fc(self, fc, offset=0):
+
+        self.fc = fc
+        print("[SDLPLAY SOURCE]set to frequency {} in file {} sample rate {}"
+            .format(self.fc, self.fc0, self.samp_rate)) 
+        self.sdr_source.set_rf_freq(self.fc)
+
+    def get_osr(self):
+        return self.osr
+
+    def set_osr(self, osr):
+        self.osr = osr
+        self.set_samp_rate_out(self.osr*self.gsm_symb_rate)
+
+    def get_samp_rate(self):
+        return self.samp_rate
+
+    def set_samp_rate(self, samp_rate):
+        self.samp_rate = samp_rate
+   
+    def set_gain(self, gain):
+        self.gain = gain
+        self.sdr_source.set_if_atten_db(self.gain) 
+    
+    @staticmethod
+    def probe():
+        try:
+            #try to create source object and remove it to avoid source initualize error
+            sdr_source = sdrplay.rsp1a_source(1848e6, 1536, True, 20, True, True,
+                False, 0, 1, 2e6, True, False, 0, False, '0')
+            sdr_source.stop()
+            pass
+        except:
+            return False
+
+        return True
+
